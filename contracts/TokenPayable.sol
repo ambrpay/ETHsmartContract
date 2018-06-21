@@ -1,7 +1,7 @@
 pragma solidity ^0.4.24;
 
 import "zeppelin-solidity/contracts/math/SafeMath.sol";
-import "./transferable.sol";
+import "./ERC20.sol";
 
 contract TokenPayable {
     using SafeMath for uint256;
