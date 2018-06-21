@@ -16,7 +16,7 @@ contract TokenPayable {
                    uint256 amount);
 
     function getTokenBalance(address _tokenContract) view public returns (uint256) {
-        Transferable token = Transferable(_tokenContract);
+        ERC20 token = ERC20(_tokenContract);
         return token.allowance(msg.sender, address(this));
     }
 

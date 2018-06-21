@@ -45,7 +45,7 @@ contract Ambr is Ownable,ETHPayable,TokenPayable,SubscriptionManagement {
         require(s.tokenContract == address(0));
         updateSubscriptionOnWithdrawl(i,_amount);
 
-        Transferable token = Transferable(s.tokenContract);
+        ERC20 token = ERC20(s.tokenContract);
         require(token.transferFrom(s.customer,s.payoutAddress,_amount));
         emit payedOut(
             i,

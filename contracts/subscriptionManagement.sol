@@ -104,4 +104,18 @@ contract SubscriptionManagement {
 
     }
 
+    function deactivateSubscription(uint256 i) internal {
+        Subscription storage s = subscriptions[i];
+        require(s.approved);
+        require(s.payoutAddress == msg.sender);
+        s.approved = false;
+    }
+
+    function activateSubscription(uint256 i) internal {
+        Subscription storage s = subscriptions[i];
+        require(!s.approved);
+        require(s.payoutAddress == msg.sender);
+        s.approved = false;
+    }
+
 }
