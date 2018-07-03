@@ -1,6 +1,6 @@
 pragma solidity ^0.4.24;
 
-import "zeppelin-solidity/contracts/math/SafeMath.sol";
+import "./SafeMath.sol";
 
 contract ETHPayable {
     using SafeMath for uint256;
@@ -14,7 +14,7 @@ contract ETHPayable {
 
     function () payable public {
         ethbalances[msg.sender] = ethbalances[msg.sender].add(msg.value);
-        emit payedInETH(msg.sender, msg.value);
+        emit payedInETH(msg.sender, ethbalances[msg.sender]);
     }
 
     function getTotalETHBalance() view public returns (uint256) {
@@ -27,6 +27,14 @@ contract ETHPayable {
         msg.sender.transfer(amount);
         emit withdrawnETH(msg.sender,amount);
     }
+
+    function withdrawETHFundsTo(uint256 amount, address destination) public {
+        require(ethbalances[msg.sender]>=amount);
+        ethbalances[msg.sender] = ethbalances[msg.sender].sub(amount);
+        destination.transfer(amount);
+        emit withdrawnETH(msg.sender,amount);
+    }
+
 
     function getETHBalance(address customer) view public returns (uint256) {
         return ethbalances[customer];

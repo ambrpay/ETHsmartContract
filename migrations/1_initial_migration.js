@@ -1,5 +1,9 @@
-var safeMathMock = artifacts.require("SafeMathMock.sol");
+var Migrations = artifacts.require("./Migrations.sol");
+
+// var safeMathMock = artifacts.require("./SafeMath.sol");
+
 
 module.exports = function(deployer) {
-    deployer.deploy(safeMathMock);
+    deployer.deploy(Migrations);
+    // deployer.deploy(safeMathMock);
 };

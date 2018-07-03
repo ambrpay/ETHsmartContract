@@ -4,15 +4,15 @@ import "./ownership/Ownable.sol";
 import "./ETHPayable.sol";
 import "./TokenPayable.sol";
 import "./SubscriptionManagement.sol";
-import "zeppelin-solidity/contracts/math/SafeMath.sol";
+import "./SafeMath.sol";
 
 contract Ambr is Ownable,ETHPayable,TokenPayable,SubscriptionManagement {
     using SafeMath for uint256;
 
     event payedOut(uint256 i,
-                   address indexed from,
-                   address indexed to,
-                   address indexed tokenContract,
+                   address from,
+                   address to,
+                   address tokenContract,
                    uint256 ambrSubscriptionPlanId,
                    uint256 amount);
     
@@ -21,13 +21,13 @@ contract Ambr is Ownable,ETHPayable,TokenPayable,SubscriptionManagement {
     }
 
     function withdrawETHForSubscription(uint256 i,uint256 _amount) public returns (bool) {
-        Subscription storage s =  subscriptions[i];    
+        Subscription storage s =  subscriptions[i];
         require(ethbalances[s.customer]>=_amount);
         require(s.tokenContract == address(0));
         updateSubscriptionOnWithdrawl(i,_amount);
         
         ethbalances[s.customer] = ethbalances[s.customer].sub(_amount);
-        require(msg.sender.send(_amount));
+        ethbalances[msg.sender] = ethbalances[msg.sender].add(_amount);
         emit payedOut(
             i,
             s.customer,
@@ -40,9 +40,7 @@ contract Ambr is Ownable,ETHPayable,TokenPayable,SubscriptionManagement {
     }
 
     function withdrawTokenForSubscription(uint256 i,uint256 _amount) public returns (bool) {
-        Subscription storage s =  subscriptions[i];    
-        require(ethbalances[s.customer]>=_amount);
-        require(s.tokenContract == address(0));
+        Subscription storage s =  subscriptions[i];
         updateSubscriptionOnWithdrawl(i,_amount);
 
         ERC20 token = ERC20(s.tokenContract);

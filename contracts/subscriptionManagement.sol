@@ -1,7 +1,7 @@
 pragma solidity ^0.4.24;
 
 import "./ownership/Ownable.sol";
-import "zeppelin-solidity/contracts/math/SafeMath.sol";
+import "./SafeMath.sol";
 
 contract SubscriptionManagement {
     using SafeMath for uint256;
@@ -40,8 +40,8 @@ contract SubscriptionManagement {
                             uint256 _maxAmount) public returns(bool)
     {
 
-        uint256 i = subscriptions.length;
-        Subscription storage s = subscriptions[i];
+        Subscription memory s;
+
         s.customer = msg.sender;
         s.tokenContract = _tokenContract;
         s.payoutAddress = _payoutAddress;
@@ -52,9 +52,10 @@ contract SubscriptionManagement {
         s.withdrawnAmount = 0;
         s.approved = true;
         s.exists = true;
+        subscriptions.push(s);
 
         emit subscriptionAdded(
-                i,
+                subscriptions.length-1,
                 s.customer,
                 s.tokenContract,
                 s.payoutAddress,
@@ -104,18 +105,18 @@ contract SubscriptionManagement {
 
     }
 
-    function deactivateSubscription(uint256 i) internal {
+    function deactivateSubscription(uint256 i) public {
         Subscription storage s = subscriptions[i];
         require(s.approved);
-        require(s.payoutAddress == msg.sender);
+        require(s.customer == msg.sender);
         s.approved = false;
     }
 
-    function activateSubscription(uint256 i) internal {
+    function activateSubscription(uint256 i) public {
         Subscription storage s = subscriptions[i];
         require(!s.approved);
-        require(s.payoutAddress == msg.sender);
-        s.approved = false;
+        require(s.customer == msg.sender);
+        s.approved = true;
     }
 
 }
