@@ -17,6 +17,9 @@ contract SubscriptionManagement {
         uint256 withdrawnAmount,
         bool approved);
 
+    event subscriptionUpdated(
+        uint256 id);
+
     Subscription[] subscriptions;
 
     struct Subscription {
@@ -95,28 +98,48 @@ contract SubscriptionManagement {
         require(s.approved);
         require(s.payoutAddress == msg.sender);
 
-        if(s.cycleStart+s.subscriptionTimeFrame<block.timestamp) {
+        if(s.cycleStart+s.subscriptionTimeFrame*60*60*24<block.timestamp) {
             subscriptions[i].cycleStart = block.timestamp;
             subscriptions[i].withdrawnAmount = 0;
         }
 
         require(s.maxAmount>=amount+s.withdrawnAmount);
-        subscriptions[i].withdrawnAmount.add(amount);
+        subscriptions[i].withdrawnAmount = subscriptions[i].withdrawnAmount.add(amount);
+        emit subscriptionUpdated(i);
 
     }
 
-    function deactivateSubscription(uint256 i) public {
+    function deactivateSubscription(uint256 i) public returns(bool) {
         Subscription storage s = subscriptions[i];
         require(s.approved);
         require(s.customer == msg.sender);
         s.approved = false;
+        emit subscriptionUpdated(i);
+        return true;
     }
 
-    function activateSubscription(uint256 i) public {
+    function activateSubscription(uint256 i) public returns(bool) {
         Subscription storage s = subscriptions[i];
         require(!s.approved);
         require(s.customer == msg.sender);
         s.approved = true;
+        emit subscriptionUpdated(i);
+        return true;
+    }
+
+    function updateSubscription (uint256 i,
+                            address _payoutAddress,
+                            uint256 _subscriptionTimeFrame,
+                            uint256 _maxAmount) public returns(bool)
+    {
+
+        Subscription storage s = subscriptions[i];
+        require(s.customer == msg.sender);
+        s.payoutAddress = _payoutAddress;
+        s.subscriptionTimeFrame = _subscriptionTimeFrame;
+        s.maxAmount = _maxAmount;
+        emit subscriptionUpdated(i);
+        return true;
     }
 
 }

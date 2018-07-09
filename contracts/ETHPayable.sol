@@ -8,6 +8,11 @@ contract ETHPayable {
                   uint256 amount);
 
     event withdrawnETH(address indexed customer,
+                    address indexed to,
+                    uint256 amount);
+
+    event transfered(address indexed from,
+                    address indexed to,
                     uint256 amount);
 
     mapping (address => uint256) ethbalances;
@@ -17,6 +22,7 @@ contract ETHPayable {
         emit payedInETH(msg.sender, ethbalances[msg.sender]);
     }
 
+
     function getTotalETHBalance() view public returns (uint256) {
         return address(this).balance;
     }
@@ -25,14 +31,23 @@ contract ETHPayable {
         require(ethbalances[msg.sender]>=amount);
         ethbalances[msg.sender] = ethbalances[msg.sender].sub(amount);
         msg.sender.transfer(amount);
-        emit withdrawnETH(msg.sender,amount);
+        emit withdrawnETH(msg.sender,msg.sender,amount);
+    }
+
+    function transferFunds(address destination, uint256 amount) public returns (bool) {
+        require(ethbalances[msg.sender]>=amount);
+        require(destination != address(0));
+        ethbalances[msg.sender] = ethbalances[msg.sender].sub(amount);
+        ethbalances[destination] = ethbalances[destination].add(amount);
+        emit transfered(msg.sender,destination,amount);
+        return true;
     }
 
     function withdrawETHFundsTo(uint256 amount, address destination) public {
         require(ethbalances[msg.sender]>=amount);
         ethbalances[msg.sender] = ethbalances[msg.sender].sub(amount);
         destination.transfer(amount);
-        emit withdrawnETH(msg.sender,amount);
+        emit withdrawnETH(msg.sender,destination,amount);
     }
 
 

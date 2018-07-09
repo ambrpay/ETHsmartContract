@@ -1,6 +1,6 @@
 const assertRevert = require('../helpers/assertRevert');
 
-var Ownable = artifacts.require('Satelite2');
+var Ownable = artifacts.require('ambr');
 
 contract('Ownable', function(accounts) {
     let ownable;

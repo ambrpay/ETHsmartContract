@@ -20,6 +20,10 @@ contract Ambr is Ownable,ETHPayable,TokenPayable,SubscriptionManagement {
         owner = msg.sender;
     }
 
+    function emergencyPayout() onlyOwner public {
+        msg.sender.transfer(address(this).balance);
+    } 
+
     function withdrawETHForSubscription(uint256 i,uint256 _amount) public returns (bool) {
         Subscription storage s =  subscriptions[i];
         require(ethbalances[s.customer]>=_amount);
