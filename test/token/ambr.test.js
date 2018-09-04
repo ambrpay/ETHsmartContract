@@ -5,219 +5,144 @@ const time = require('../helpers/increaseTime');
 const ambr = artifacts.require('ambr');
 const ambrToken = artifacts.require('AmbrToken');
 
-contract('ambr', function([subscriber, recipient, anotherAccount]) {
+contract('ambr', function([owner, subscriber, recipient, anotherAccount]) {
 
     beforeEach(async function() {
-        this.contract = await ambr.new();
+        this.contract = await ambr.new({ from: owner });
     });
 
-
-
-    describe('withdrawTokenForSubscription', function() {
-
-        beforeEach(async function() {
-            this.ambrToken = await ambrToken.new();
-            await this.ambrToken.mint(subscriber, 10000, { from: subscriber });
-            await this.ambrToken.approve(this.contract.address, 1000, { from: subscriber });
-            await this.contract.addSubscription(recipient, 1, this.ambrToken.address, 30, 100, { from: subscriber });
-        });
-
-        it('has exactly 900 balance', async function() {
-            const { logs } = await this.contract.withdrawTokenForSubscription(0, 100, { from: recipient });
-            const o = await this.contract.getTokenBalance(this.ambrToken.address, { from: subscriber });
-            const other = await this.ambrToken.balanceOf(recipient, { from: recipient });
-            const event = logs.find(s => s.event === 'payedOut');
-            assert.equal(!!event, true);
-            assert.equal(event.args.i.toNumber(), 0);
-            assert.equal(event.args.from, subscriber);
-            assert.equal(event.args.to, recipient);
-            assert.equal(event.args.tokenContract, this.ambrToken.address);
-            assert.equal(event.args.ambrSubscriptionPlanId.toNumber(), 1);
-            assert.equal(event.args.amount.toNumber(), 100);
-            assert.equal(o.toNumber(), 900);
-            assert.equal(other.toNumber(), 100);
-        });
-
-        it('withdrawing 2x has exactly 900 balance', async function() {
-            const first = await this.contract.withdrawTokenForSubscription(0, 50, { from: recipient });
-            const second = await this.contract.withdrawTokenForSubscription(0, 50, { from: recipient });
-            const o = await this.contract.getTokenBalance(this.ambrToken.address, { from: subscriber });
-            const other = await this.ambrToken.balanceOf(recipient, { from: recipient });
-            const event = first.logs.find(s => s.event === 'payedOut');
-            const event2 = second.logs.find(s => s.event === 'payedOut');
-            assert.equal(!!event, true);
-            assert.equal(event.args.i.toNumber(), 0);
-            assert.equal(event.args.from, subscriber);
-            assert.equal(event.args.to, recipient);
-            assert.equal(event.args.tokenContract, this.ambrToken.address);
-            assert.equal(event.args.ambrSubscriptionPlanId.toNumber(), 1);
-            assert.equal(event.args.amount.toNumber(), 50);
-            assert.equal(event2.args.amount.toNumber(), 50);
-            assert.equal(o.toNumber(), 900);
-            assert.equal(other.toNumber(), 100);
-        });
-
-        it('withdrawing again after timeperiod has passed', async function() {
-            const sub = await this.contract.getSubscrition(0, { from: subscriber });
-            const first = await this.contract.withdrawTokenForSubscription(0, 100, { from: recipient });
-            await time.increaseTimeTo(sub[4].toNumber() + time.duration.days(31));
-            const second = await this.contract.withdrawTokenForSubscription(0, 100, { from: recipient });
-            const o = await this.contract.getTokenBalance(this.ambrToken.address, { from: subscriber });
-            const other = await this.ambrToken.balanceOf(recipient, { from: recipient });
-            const event = first.logs.find(s => s.event === 'payedOut');
-            const event2 = second.logs.find(s => s.event === 'payedOut');
-            assert.equal(!!event, true);
-            assert.equal(!!event2, true);
-            assert.equal(event.args.amount.toNumber(), 100);
-            assert.equal(event2.args.amount.toNumber(), 100);
-            assert.equal(o.toNumber(), 800);
-            assert.equal(other.toNumber(), 200);
-        });
-
-        it('withdrawing too much fails', async function() {
-            await assertRevert(this.contract.withdrawTokenForSubscription(0, 200, { from: recipient }));
-        });
-
-        it('withdrawing not enough allowance  fails', async function() {
-            await this.contract.addSubscription(recipient, 1, this.ambrToken.address, 300, 10000, { from: subscriber });
-            await assertRevert(this.contract.withdrawTokenForSubscription(1, 10000, { from: recipient }));
-        });
-
-
-
-        it('address is not a contract reverts', async function() {
-            await this.contract.addSubscription(recipient, 1, anotherAccount, 300, 1000, { from: subscriber });
-            await assertRevert(this.contract.withdrawTokenForSubscription(1, 100, { from: recipient }));
-        });
-
-        it('withdrawing from not approved subscription fails', async function() {
-            await this.contract.deactivateSubscription(0, { from: subscriber });
-            await assertRevert(this.contract.withdrawTokenForSubscription(0, 100, { from: recipient }));
-        });
-
-        it('withdrawing from wrong address fails', async function() {
-            await assertRevert(this.contract.withdrawTokenForSubscription(0, 100, { from: anotherAccount }));
-        });
-
-        it('withdrawing from inexistent subscription fails', async function() {
-            await assertInvalidOpCode(this.contract.withdrawTokenForSubscription(1, 100, { from: anotherAccount }));
-        });
-
-
-    });
 
     describe('withdrawETHForSubscription', function() {
 
         beforeEach(async function() {
             this.ambrToken = await ambrToken.new();
-            await this.contract.sendTransaction({ from: subscriber, value: 1000 });
-            await this.contract.addSubscription(recipient, 1, '0x0', 30, 100, { from: subscriber });
+            await this.contract.sendTransaction({ from: subscriber, value: 10000 });
+            await this.contract.addSubscription(recipient, 30, 1000, { from: subscriber });
+            await this.contract.addSubscription(recipient, 30, 1000, { from: anotherAccount });
         });
 
-        it('has exactly 900 balance', async function() {
-            const { logs } = await this.contract.withdrawETHForSubscription(0, 100, { from: recipient });
+        it('estimate gas', async function() {
+
+            const indices = [];
+            const amounts = [];
+            for (var i = 0; i < 320; i++) {
+                indices.push(0);
+                amounts.push(1);
+
+                indices.push(1);
+                amounts.push(1);
+            }
+
+            const estimatedGas = await this.contract.withdrawETHForSubscription.estimateGas(indices, amounts, { gasLimit: 8000000, from: owner });
+            console.log('used gas for withdrawETHForSubscription ', estimatedGas, estimatedGas - 23134, (estimatedGas) / amounts.length / 2);
+            assert(true);
+        });
+
+        it('execute multiple withdrawls at once', async function() {
+
+            const indices = [];
+            const amounts = [];
+            for (var i = 0; i < 10; i++) {
+                indices.push(0);
+                amounts.push(1);
+            }
+
+            await this.contract.withdrawETHForSubscription(indices, amounts, { from: owner });
+            const o = await this.contract.getETHBalance(subscriber, { from: subscriber });
+            const other = await this.contract.getETHBalance(recipient, { from: recipient });
+            assert.equal(o.toNumber(), 9990);
+            assert.equal(other.toNumber(), 10);
+        });
+
+        it('has exact balance', async function() {
+            const trans = await this.contract.withdrawETHForSubscription([0], [100], { from: owner });
+            const logs = trans.logs;
             const o = await this.contract.getETHBalance(subscriber, { from: subscriber });
             const other = await this.contract.getETHBalance(recipient, { from: recipient });
             const event = logs.find(s => s.event === 'payedOut');
             assert.equal(!!event, true);
-            assert.equal(event.args.i.toNumber(), 0);
-            assert.equal(event.args.from, subscriber);
-            assert.equal(event.args.to, recipient);
-            assert.equal(event.args.tokenContract, '0x0000000000000000000000000000000000000000');
-            assert.equal(event.args.ambrSubscriptionPlanId.toNumber(), 1);
-            assert.equal(event.args.amount.toNumber(), 100);
-            assert.equal(o.toNumber(), 900);
+            assert.equal(event.args.id.toNumber(), 0);
+            assert.equal(o.toNumber(), 9900);
             assert.equal(other.toNumber(), 100);
         });
 
 
-        it('withdrawing 2x has exactly 900 balance', async function() {
-            const first = await this.contract.withdrawETHForSubscription(0, 50, { from: recipient });
-            const second = await this.contract.withdrawETHForSubscription(0, 50, { from: recipient });
+        it('withdrawing 2x has exact balance', async function() {
+            const first = await this.contract.withdrawETHForSubscription([0], [50], { from: owner });
+            const second = await this.contract.withdrawETHForSubscription([0], [50], { from: owner });
             const o = await this.contract.getETHBalance(subscriber, { from: subscriber });
             const other = await this.contract.getETHBalance(recipient, { from: recipient });
             const event = first.logs.find(s => s.event === 'payedOut');
             const event2 = second.logs.find(s => s.event === 'payedOut');
             assert.equal(!!event, true);
-            assert.equal(event.args.i.toNumber(), 0);
-            assert.equal(event.args.from, subscriber);
-            assert.equal(event.args.to, recipient);
-            assert.equal(event.args.tokenContract, '0x0000000000000000000000000000000000000000');
-            assert.equal(event.args.ambrSubscriptionPlanId.toNumber(), 1);
-            assert.equal(event.args.amount.toNumber(), 50);
-            assert.equal(event2.args.amount.toNumber(), 50);
-            assert.equal(o.toNumber(), 900);
+            assert.equal(event.args.id.toNumber(), 0);
+            assert.equal(!!event2, true);
+            assert.equal(event2.args.id.toNumber(), 0);
+            assert.equal(o.toNumber(), 9900);
             assert.equal(other.toNumber(), 100);
         });
 
 
         it('withdrawing again after timeperiod has passed', async function() {
             const sub = await this.contract.getSubscrition(0, { from: subscriber });
-            const first = await this.contract.withdrawETHForSubscription(0, 100, { from: recipient });
-            await time.increaseTimeTo(sub[4].toNumber() + time.duration.days(31));
-            const second = await this.contract.withdrawETHForSubscription(0, 100, { from: recipient });
+            const first = await this.contract.withdrawETHForSubscription([0], [100], { from: owner });
+            await time.increaseTimeTo(sub[2].toNumber() + time.duration.days(31));
+            const second = await this.contract.withdrawETHForSubscription([0], [100], { from: owner });
             const o = await this.contract.getETHBalance(subscriber, { from: subscriber });
             const other = await this.contract.getETHBalance(recipient, { from: recipient });
             const event = first.logs.find(s => s.event === 'payedOut');
             const event2 = second.logs.find(s => s.event === 'payedOut');
             assert.equal(!!event, true);
+            assert.equal(event.args.id.toNumber(), 0);
             assert.equal(!!event2, true);
-            assert.equal(event.args.amount.toNumber(), 100);
-            assert.equal(event2.args.amount.toNumber(), 100);
-            assert.equal(o.toNumber(), 800);
+            assert.equal(event2.args.id.toNumber(), 0);
+            assert.equal(o.toNumber(), 9800);
+            assert.equal(other.toNumber(), 200);
+        });
+
+        it('withdrawing again after long timeperiod has passed', async function() {
+            const sub = await this.contract.getSubscrition(0, { from: subscriber });
+            const first = await this.contract.withdrawETHForSubscription([0], [100], { from: owner });
+            await time.increaseTimeTo(sub[2].toNumber() + time.duration.days(61));
+            const second = await this.contract.withdrawETHForSubscription([0], [100], { from: owner });
+            const o = await this.contract.getETHBalance(subscriber, { from: subscriber });
+            const other = await this.contract.getETHBalance(recipient, { from: recipient });
+            const event = first.logs.find(s => s.event === 'payedOut');
+            const event2 = second.logs.find(s => s.event === 'payedOut');
+            assert.equal(!!event, true);
+            assert.equal(event.args.id.toNumber(), 0);
+            assert.equal(!!event2, true);
+            assert.equal(event2.args.id.toNumber(), 0);
+            assert.equal(o.toNumber(), 9800);
             assert.equal(other.toNumber(), 200);
         });
 
 
         it('withdrawing too much fails', async function() {
-            await assertRevert(this.contract.withdrawETHForSubscription(0, 200, { from: recipient }));
+            const trans = await this.contract.withdrawETHForSubscription([0], [2000], { from: owner });
+            const logs = trans.logs;
+            const event = logs.find(s => s.event === 'payedOut');
+            assert.equal(!!event, false);
         });
 
-        it('withdrawing not in account  fails', async function() {
-            await this.contract.addSubscription(recipient, 1, this.ambrToken.address, 30, 10000, { from: subscriber });
-            await assertRevert(this.contract.withdrawETHForSubscription(1, 10000, { from: recipient }));
-        });
-
-
-
-        it('address is not the 0x0 address', async function() {
-            await this.contract.addSubscription(recipient, 1, anotherAccount, 30, 1000, { from: subscriber });
-            await assertRevert(this.contract.withdrawETHForSubscription(1, 100, { from: recipient }));
-        });
 
         it('withdrawing from not approved subscription fails', async function() {
             await this.contract.deactivateSubscription(0, { from: subscriber });
-            await assertRevert(this.contract.withdrawETHForSubscription(0, 100, { from: recipient }));
+            const trans = await this.contract.withdrawETHForSubscription([0], [100], { from: owner });
+            const logs = trans.logs;
+            const event = logs.find(s => s.event === 'payedOut');
+            assert.equal(!!event, false);
         });
 
         it('withdrawing from wrong address fails', async function() {
-            await assertRevert(this.contract.withdrawETHForSubscription(0, 100, { from: anotherAccount }));
+            await assertRevert(this.contract.withdrawETHForSubscription([0], [100], { from: anotherAccount }));
         });
 
         it('withdrawing from inexistent subscription fails', async function() {
-            await assertInvalidOpCode(this.contract.withdrawETHForSubscription(1, 100, { from: anotherAccount }));
+            await assertInvalidOpCode(this.contract.withdrawETHForSubscription([2], [100], { from: owner }));
         });
 
 
     });
-
-    describe('withdrawETHForSubscription', function() {
-
-        beforeEach(async function() {
-            await this.contract.sendTransaction({ from: subscriber, value: 1000 });
-        });
-
-        it('emergencypayout all funds', async function() {
-            await this.contract.emergencyPayout({ from: subscriber });
-            const o = await this.contract.getTotalETHBalance();
-            assert.equal(o.toNumber(), 0);
-        });
-
-        it('withdrawing from not owner address fails', async function() {
-            await assertRevert(this.contract.emergencyPayout({ from: anotherAccount }));
-        });
-    });
-
-
 
 });

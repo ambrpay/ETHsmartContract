@@ -1,74 +1,51 @@
 pragma solidity ^0.4.24;
 
 import "./ownership/Ownable.sol";
+import "./ETHPayable.sol";
 import "./SafeMath.sol";
 
-contract SubscriptionManagement {
+contract SubscriptionManagement is ETHPayable, Ownable {
     using SafeMath for uint256;
-    event subscriptionAdded(
-        uint256 id, 
-        address indexed customer,
-        address indexed tokenContract,
-        address indexed payoutAddress,
-        uint256 ambrSubscriptionPlanId,
-        uint256 cycleStart,
-        uint256 subscriptionTimeFrame,
-        uint256 maxAmount,
-        uint256 withdrawnAmount,
-        bool approved);
 
-    event subscriptionUpdated(
-        uint256 id);
+    event payedOut(uint256 id);
+
+    event subscriptionUpdated(uint256 id);
 
     Subscription[] subscriptions;
 
     struct Subscription {
         address customer; //customer that allowed for withdrawl
-        address tokenContract; //Address of the erc20 tokencontract to withdraw from.
         address payoutAddress; //Address of the Business that can withdraw
-        uint256 ambrSubscriptionPlanId; //SubscriptionPlan id on ambr
         uint256 cycleStart; //start of the subscription cycle
         uint256 subscriptionTimeFrame; //Length of the subscription (1 Month ususally)
         uint256 maxAmount; //Max amount that can be withdrawn in one timeframe
         uint256 withdrawnAmount; //Amount that has been withdrawn so far this timeframe
         bool approved; // true if the subscription is active
-        bool exists; //to see if the subscription exists. (needed for tech workaround)
+    }
+
+    constructor() public {
+        owner = msg.sender;
     }
 
      //adding a subscription
     function addSubscription (address _payoutAddress,
-                            uint256 _ambrSubscriptionPlanId,
-                            address _tokenContract,
                             uint256 _subscriptionTimeFrame,
-                            uint256 _maxAmount) public returns(bool)
+                            uint256 _maxAmount) payable public returns(bool)
     {
 
         Subscription memory s;
-
         s.customer = msg.sender;
-        s.tokenContract = _tokenContract;
         s.payoutAddress = _payoutAddress;
-        s.ambrSubscriptionPlanId  = _ambrSubscriptionPlanId;
         s.cycleStart = block.timestamp;
         s.subscriptionTimeFrame = _subscriptionTimeFrame;
         s.maxAmount = _maxAmount;
         s.withdrawnAmount = 0;
         s.approved = true;
-        s.exists = true;
         subscriptions.push(s);
 
-        emit subscriptionAdded(
-                subscriptions.length-1,
-                s.customer,
-                s.tokenContract,
-                s.payoutAddress,
-                s.ambrSubscriptionPlanId,
-                s.cycleStart,
-                s.subscriptionTimeFrame,
-                s.maxAmount,
-                s.withdrawnAmount,
-                s.approved
-            );
+        ethbalances[msg.sender] = ethbalances[msg.sender].add(msg.value);
+        emit payedInETH(msg.sender, ethbalances[msg.sender]);
+        emit subscriptionUpdated(subscriptions.length-1);
         return true;
     }
 
@@ -77,37 +54,19 @@ contract SubscriptionManagement {
         return subscriptions.length;
     }
 
-    function getSubscrition(uint256 i) view public returns(address, address, address,uint256,uint256,uint256,uint256,uint256,bool,bool) {
+    function getSubscrition(uint256 i) view public returns(address, address,uint256,uint256,uint256,uint256,bool) {
         Subscription storage s = subscriptions[i];
         return (
             s.customer,
-            s.tokenContract,
             s.payoutAddress,
-            s.ambrSubscriptionPlanId,
             s.cycleStart,
             s.subscriptionTimeFrame,
             s.maxAmount,
             s.withdrawnAmount,
-            s.approved,
-            s.exists
+            s.approved
         );
     }
 
-    function updateSubscriptionOnWithdrawl(uint256 i,uint256 amount) internal {
-        Subscription storage s = subscriptions[i];
-        require(s.approved);
-        require(s.payoutAddress == msg.sender);
-
-        if(s.cycleStart+s.subscriptionTimeFrame*60*60*24<block.timestamp) {
-            subscriptions[i].cycleStart = block.timestamp;
-            subscriptions[i].withdrawnAmount = 0;
-        }
-
-        require(s.maxAmount>=amount+s.withdrawnAmount);
-        subscriptions[i].withdrawnAmount = subscriptions[i].withdrawnAmount.add(amount);
-        emit subscriptionUpdated(i);
-
-    }
 
     function deactivateSubscription(uint256 i) public returns(bool) {
         Subscription storage s = subscriptions[i];
@@ -142,4 +101,30 @@ contract SubscriptionManagement {
         return true;
     }
 
+    function withdrawETHForSubscription(uint256[] indices,uint256[] _amounts) onlyOwner public {
+        require(indices.length == _amounts.length);
+        require(indices.length < 4294967295);
+        
+        for (uint32 j = 0; j < indices.length; j++) {
+           
+            Subscription storage s =  subscriptions[indices[j]];
+
+            if(ethbalances[s.customer]<_amounts[j] || !s.approved || s.maxAmount<_amounts[j]+ s.withdrawnAmount) continue;
+
+            s.withdrawnAmount = s.withdrawnAmount.add(_amounts[j]); //5971
+            ethbalances[s.customer] = ethbalances[s.customer].sub(_amounts[j]); //6048 gas
+            ethbalances[s.payoutAddress] = ethbalances[s.payoutAddress].add(_amounts[j]); //6048 gas
+           
+            if(s.cycleStart+s.subscriptionTimeFrame*60*60*24<block.timestamp) { //500
+              s.cycleStart = block.timestamp; //5378
+              s.withdrawnAmount = 0; //5379
+            }
+         
+            emit payedOut(indices[j]); //1123
+        }
+      
+      
+    }
+
+   
 }
