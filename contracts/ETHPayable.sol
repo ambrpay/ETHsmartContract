@@ -22,6 +22,12 @@ contract ETHPayable {
         emit payedInETH(msg.sender, ethbalances[msg.sender]);
     }
 
+    function payInFor(address destination) public payable {
+        require(destination!=address(0));
+        ethbalances[destination] = ethbalances[destination].add(msg.value);
+        emit payedInETH(destination, ethbalances[destination]);
+    }
+
 
     function getTotalETHBalance() view public returns (uint256) {
         return address(this).balance;

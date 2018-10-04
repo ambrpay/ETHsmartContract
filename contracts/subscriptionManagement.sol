@@ -17,7 +17,7 @@ contract SubscriptionManagement is ETHPayable, Ownable {
         address customer; //customer that allowed for withdrawl
         address payoutAddress; //Address of the Business that can withdraw
         uint256 cycleStart; //start of the subscription cycle
-        uint256 subscriptionTimeFrame; //Length of the subscription (1 Month ususally)
+        uint16 subscriptionTimeFrame; //Length of the subscription (1 Month ususally) in days
         uint256 maxAmount; //Max amount that can be withdrawn in one timeframe
         uint256 withdrawnAmount; //Amount that has been withdrawn so far this timeframe
         bool approved; // true if the subscription is active
@@ -29,7 +29,7 @@ contract SubscriptionManagement is ETHPayable, Ownable {
 
      //adding a subscription
     function addSubscription (address _payoutAddress,
-                            uint256 _subscriptionTimeFrame,
+                            uint16 _subscriptionTimeFrame,
                             uint256 _maxAmount) payable public returns(bool)
     {
 
@@ -54,7 +54,7 @@ contract SubscriptionManagement is ETHPayable, Ownable {
         return subscriptions.length;
     }
 
-    function getSubscrition(uint256 i) view public returns(address, address,uint256,uint256,uint256,uint256,bool) {
+    function getSubscrition(uint256 i) view public returns(address, address,uint256,uint16,uint256,uint256,bool) {
         Subscription storage s = subscriptions[i];
         return (
             s.customer,
@@ -88,7 +88,7 @@ contract SubscriptionManagement is ETHPayable, Ownable {
 
     function updateSubscription (uint256 i,
                             address _payoutAddress,
-                            uint256 _subscriptionTimeFrame,
+                            uint16 _subscriptionTimeFrame,
                             uint256 _maxAmount) public returns(bool)
     {
 

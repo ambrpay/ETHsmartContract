@@ -19,6 +19,21 @@ contract('ETHPayable', function([subscriber, recipient, anotherAccount]) {
 
     });
 
+    describe('payInFor', function() {
+        it('account has 11111', async function() {
+            const { logs } = await this.contract.payInFor(subscriber, { from: anotherAccount, value: 11111 });
+            const event = logs.find(s => s.event === 'payedInETH');
+            assert.equal(!!event, true);
+            assert.equal(event.args.from, subscriber);
+            assert.equal(event.args.amount.toNumber(), 11111);
+        });
+
+        it('fails because of 0 address', async function() {
+            await assertRevert(this.contract.payInFor(0x0, { from: anotherAccount, value: 11111 }));
+        });
+
+    });
+
     describe('getTotalETHBalance', function() {
         beforeEach(async function() {
             await this.contract.sendTransaction({ from: subscriber, value: 11111 });
@@ -51,7 +66,7 @@ contract('ETHPayable', function([subscriber, recipient, anotherAccount]) {
 
         describe('another account pays in', function() {
             it('account has 11111', async function() {
-                const { logs } = await this.contract.sendTransaction({ from: anotherAccount, value: 11111 });
+                await this.contract.sendTransaction({ from: anotherAccount, value: 11111 });
                 const p = await this.contract.getETHBalance(subscriber, { from: subscriber });
                 assert.equal(p.toNumber(), 11111);
             });
