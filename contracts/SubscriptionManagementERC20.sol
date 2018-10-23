@@ -1,10 +1,10 @@
 pragma solidity ^0.4.24;
 
-import "./ownership/Ownable.sol";
-import "./ETHPayable.sol";
+import "./Ownable.sol";
 import "./SafeMath.sol";
+import "./ERC20.sol";
 
-contract SubscriptionManagement is ETHPayable, Ownable {
+contract SubscriptionManagementERC20 is  Ownable {
     using SafeMath for uint256;
 
     event payedOut(uint256 id);
@@ -14,6 +14,7 @@ contract SubscriptionManagement is ETHPayable, Ownable {
     Subscription[] subscriptions;
 
     struct Subscription {
+        address tokenAddress; //customer that allowed for withdrawl
         address customer; //customer that allowed for withdrawl
         address payoutAddress; //Address of the Business that can withdraw
         uint256 cycleStart; //start of the subscription cycle
@@ -28,12 +29,15 @@ contract SubscriptionManagement is ETHPayable, Ownable {
     }
 
      //adding a subscription
-    function addSubscription (address _payoutAddress,
+    function addSubscription (
+                            address _tokenAddress,
+                            address _payoutAddress,
                             uint16 _subscriptionTimeFrame,
-                            uint256 _maxAmount) payable public returns(bool)
+                            uint256 _maxAmount) public returns(bool)
     {
-
+        
         Subscription memory s;
+        s.tokenAddress = _tokenAddress;
         s.customer = msg.sender;
         s.payoutAddress = _payoutAddress;
         s.cycleStart = block.timestamp;
@@ -42,9 +46,6 @@ contract SubscriptionManagement is ETHPayable, Ownable {
         s.withdrawnAmount = 0;
         s.approved = true;
         subscriptions.push(s);
-
-        ethbalances[msg.sender] = ethbalances[msg.sender].add(msg.value);
-        emit payedInETH(msg.sender, ethbalances[msg.sender]);
         emit subscriptionUpdated(subscriptions.length-1);
         return true;
     }
@@ -54,7 +55,7 @@ contract SubscriptionManagement is ETHPayable, Ownable {
         return subscriptions.length;
     }
 
-    function getSubscrition(uint256 i) view public returns(address, address,uint256,uint16,uint256,uint256,bool) {
+    function getSubscrition(uint256 i) view public returns(address, address,uint256,uint16,uint256,uint256,bool,address) {
         Subscription storage s = subscriptions[i];
         return (
             s.customer,
@@ -63,7 +64,8 @@ contract SubscriptionManagement is ETHPayable, Ownable {
             s.subscriptionTimeFrame,
             s.maxAmount,
             s.withdrawnAmount,
-            s.approved
+            s.approved,
+            s.tokenAddress
         );
     }
 
@@ -101,19 +103,20 @@ contract SubscriptionManagement is ETHPayable, Ownable {
         return true;
     }
 
-    function withdrawETHForSubscription(uint256[] indices,uint256[] _amounts) onlyOwner public {
+    function withdrawERC20ForSubscription(uint256[] indices,uint256[] _amounts) onlyOwner public {
         require(indices.length == _amounts.length);
         require(indices.length < 4294967295);
         
         for (uint32 j = 0; j < indices.length; j++) {
            
             Subscription storage s =  subscriptions[indices[j]];
+            ERC20 token = ERC20(s.tokenAddress);
 
-            if(ethbalances[s.customer]<_amounts[j] || !s.approved || s.maxAmount<_amounts[j]+ s.withdrawnAmount) continue;
+            if(token.allowance(s.customer,address(this))<_amounts[j] || !s.approved || s.maxAmount<_amounts[j]+ s.withdrawnAmount) continue;
+            
+            token.transferFrom(s.customer,s.payoutAddress,_amounts[j]);
 
             s.withdrawnAmount = s.withdrawnAmount.add(_amounts[j]); //5971
-            ethbalances[s.customer] = ethbalances[s.customer].sub(_amounts[j]); //6048 gas
-            ethbalances[s.payoutAddress] = ethbalances[s.payoutAddress].add(_amounts[j]); //6048 gas
            
             if(s.cycleStart+s.subscriptionTimeFrame*60*60*24<block.timestamp) { //500
               s.cycleStart = block.timestamp; //5378

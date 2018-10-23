@@ -2,8 +2,7 @@ const assertRevert = require('../helpers/assertRevert');
 const assertInvalidOpCode = require('../helpers/assertInvalidOpcode');
 const time = require('../helpers/increaseTime');
 
-const ambr = artifacts.require('ambr');
-const ambrToken = artifacts.require('AmbrToken');
+const ambr = artifacts.require('SubscriptionManagementETH');
 
 contract('ambr', function([owner, subscriber, recipient, anotherAccount]) {
 
@@ -15,7 +14,6 @@ contract('ambr', function([owner, subscriber, recipient, anotherAccount]) {
     describe('withdrawETHForSubscription', function() {
 
         beforeEach(async function() {
-            this.ambrToken = await ambrToken.new();
             await this.contract.sendTransaction({ from: subscriber, value: 10000 });
             await this.contract.addSubscription(recipient, 30, 1000, { from: subscriber });
             await this.contract.addSubscription(recipient, 30, 1000, { from: anotherAccount });

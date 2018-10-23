@@ -1,6 +1,6 @@
 const assertRevert = require('../helpers/assertRevert');
 
-const ambr = artifacts.require('ambr');
+const ambr = artifacts.require('SubscriptionManagementETH');
 
 contract('subscriptionManagement', function([subscriber, recipient, anotherAccount, owner]) {
 
